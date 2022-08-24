@@ -1,6 +1,6 @@
 # Quick Favorite Emoji
 
-## Chat :tw-1f604:
+## Chat :smiley:
 ![Example](https://github.com/KfirIL/BetterDiscordPlugins/blob/main/QuickFavoriteEmoji/assets/quick-emoji-example.gif "Example")
 
 ## Settings
