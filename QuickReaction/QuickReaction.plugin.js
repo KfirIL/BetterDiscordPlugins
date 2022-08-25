@@ -5,7 +5,7 @@
  * @donate undefined
  * @patreon undefined
  * @website 
- * @source 
+ * @source https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js
  */
 /*@cc_on
 @if (@_jscript)
@@ -32,7 +32,7 @@
 @else@*/
 
 module.exports = (() => {
-    const config = {"info":{"name":"Quick Reaction","authors":[{"name":"Kfir","discord_id":"302774260236025857","github_username":"KfirIL"}],"version":"1.0.0","description":"Lets you quickly use selected reaction.","github":"","github_raw":""},"changelog":[{"title":"Release","items":["Thanks For Installing!"]}],"main":"index.js"};
+    const config = {"info":{"name":"QuickReaction","authors":[{"name":"Kfir","discord_id":"302774260236025857","github_username":"KfirIL"}],"version":"1.0.0","description":"Lets you quickly use selected reaction.","github":"","github_raw":"https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js"},"changelog":[{"title":"Release","items":["Thanks For Installing!"]}],"main":"index.js"};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -64,14 +64,12 @@ module.exports = (() => {
             this.quickReaction = {
                 name: BdApi.loadData(config.info.name, "Emoji Name"),
                 id: BdApi.loadData(config.info.name, "Emoji Id")
-            }
+            };
             if(this.quickReaction.name === undefined) this.quickReaction.name = "😁";
+            this.emojis = BdApi.loadData(config.info.name, "Emojis");
         }
 
-        onStart() {
-            const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/faceEmojisToPosition.json';
-            const response = fetch(url);
-            const data = response.json();
+        onStart() { 
             Patcher.before(Logger, "log", (t, a) => {
                 a[0] = "Patched Message: " + a[0];
             });
@@ -84,13 +82,11 @@ module.exports = (() => {
                     if(e !== null)
                     new Tooltip(e, "Quick Reaction", {style: "grey"});
                 }
-
-                function faceEmojisToPostition(emoji) {
-                    data.emojis.forEach(element => {
-                        if(element === emoji) return element[0];
-                    });
+                
+                const emojiPos = (emoji) => {
+                    if(this.emojis[emoji] === undefined) return this.emojis['default'];
+                    else return this.emojis[emoji];
                 }
-
                 class ToolTip extends React.Component {
                     constructor(props) {
                         super(props);
@@ -128,7 +124,7 @@ module.exports = (() => {
                                   }, React.createElement("div", {
                                     className: "sprite-2lxwfc",
                                     style: {
-                                        "background-position": faceEmojisToPostition(q.quickReaction.name),
+                                        "background-position": emojiPos(q.quickReaction.name),
                                         "background-size": "242px 110px",
                                         "transform": "scale(1)",
                                         "filter": "grayscale(100%)"
@@ -145,15 +141,21 @@ module.exports = (() => {
 
         getSettingsPanel() {
             return Settings.SettingPanel.build(this.saveSettings.bind(this), 
-            new Settings.SettingGroup("Favorite Emoji").append(
                 new Settings.Textbox("Emoji Name", "Type your emoji's name", this.quickReaction.name, (e) => {
                     this.quickReaction.name = e;
+                    const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/faceEmojisToPosition.json';
+                    const response = fetch(url);
+                    const data = response.then(function(resp) {return resp.text()});
+                    data.then((d) => {
+                        const emojis = JSON.parse(d).emojis;
+                        this.emojis = emojis;
+                        BdApi.saveData(config.info.name, "Emojis", this.emojis);
+                        });
                     }),
                 new Settings.Textbox("Emoji Id", "Leave blank if none", this.quickReaction.id, (e) => {
                     if(e === "") return this.quickReaction.id = null;
                     this.quickReaction.id = e;
                 })
-                )
             )
         }
         saveSettings() {
