@@ -82,19 +82,19 @@ module.exports = (() => {
                     if(e !== null)
                     new Tooltip(e, "Quick Reaction", {style: "grey"});
                 }
-
-                var url = 'url(\"/assets/9ea87b934848cd1f5c4bc7f1fcdac803.png\")';
                 const emojiPos = (emoji) => {
                     if(this.emojis[emoji] === undefined) {
-                        if(this.emojis['arms'][emoji] === undefined) {
-                            return this.emojis['default'];
-                        }
-                        else {
-                            url = 'url("/assets/28b51c7a7a5cf0f7690d36408f7646e1.png")'
-                            return this.emojis['arms'][emoji];
-                        }   
+                        if(this.emojis['arms'][emoji] === undefined) return this.emojis['default'];
+                        else return this.emojis['arms'][emoji]; 
                     }
                     else return this.emojis[emoji];
+                }
+                const emojiUrl = (emoji) => {
+                    if(this.emojis[emoji] === undefined) {
+                        if(this.emojis['arms'][emoji] === undefined) return this.emojis['url'];
+                        else return this.emojis['arms']['url']; 
+                    }
+                    else return this.emojis['url'];
                 }
                 class ToolTip extends React.Component {
                     constructor(props) {
@@ -132,7 +132,7 @@ module.exports = (() => {
                                   }, React.createElement("div", {
                                     className: "emojiSpriteImage-3ykvhZ",
                                     style: {
-                                        "background-image": url,
+                                        "background-image": emojiUrl(),
                                         "background-position": emojiPos(q.quickReaction.name),
                                         "background-size": "1344px 1216px",
                                         "height": "32px",

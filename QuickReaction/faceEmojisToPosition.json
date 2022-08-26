@@ -1,5 +1,6 @@
 {
   "emojis":{
+      "url": "url(\"/assets/9ea87b934848cd1f5c4bc7f1fcdac803.png\")",
       "😀":"0px 0px",
       "😃":"-32px 0px",
       "😄":"-64px 0px",
@@ -414,6 +415,7 @@
       "🌂":"-544px -160px",
       "default":"0px 0px",
       "arms": {
+        "url": "url(\"/assets/28b51c7a7a5cf0f7690d36408f7646e1.png\")",
         "🤲":"0px 0px",
         "👐":"-32px 0px",
         "🙌":"-64px 0px",
