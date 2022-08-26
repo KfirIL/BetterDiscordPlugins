@@ -65,6 +65,7 @@ module.exports = (() => {
                 name: BdApi.loadData(config.info.name, "Emoji Name"),
                 id: BdApi.loadData(config.info.name, "Emoji Id")
             };
+            this.animated = BdApi.loadData(config.info.name, "Animated");
             if(this.quickReaction.name === undefined) this.quickReaction.name = "😁";
             this.emojis = BdApi.loadData(config.info.name, "Emojis");
         }
@@ -83,6 +84,7 @@ module.exports = (() => {
                     new Tooltip(e, "Quick Reaction", {style: "grey"});
                 }
                 const emojiPos = (emoji) => {
+                    if(this.quickReaction.id !== null) return undefined;
                     if(this.emojis[emoji] === undefined) {
                         if(this.emojis['arms'][emoji] === undefined) return this.emojis['default'];
                         else return this.emojis['arms'][emoji]; 
@@ -90,13 +92,26 @@ module.exports = (() => {
                     else return this.emojis[emoji];
                 }
                 const emojiUrl = (emoji) => {
+                    if(this.quickReaction.id !== null) return undefined;
                     if(this.emojis[emoji] === undefined) {
                         if(this.emojis['arms'][emoji] === undefined) return this.emojis['url'];
                         else return this.emojis['arms']['url']; 
                     }
                     else return this.emojis['url'];
                 }
+                const customEmojiUrl = (emoji) => {
+                    const gifOrWebp = () => {
+                        if(this.animated === true) return 'gif';
+                        else return 'webp';
+                    }
+                    if(emoji !== null) return 'https://cdn.discordapp.com/emojis/' + emoji + '.' + gifOrWebp() + '?size=48&quality=lossless';
+                }
+                const customEmojiTag = (emoji) => {
+                    if(emoji !== null) return 'img';
+                    else return 'div';
+                } 
                 const emojiBackSize = (emoji) => {
+                    if(this.quickReaction.id !== null) return '32px';
                     if(this.emojis[emoji] === undefined) {
                         if(this.emojis['arms'][emoji] === undefined) return this.emojis['backgroundSize'];
                         else return this.emojis['arms']['backgroundSize']; 
@@ -137,8 +152,9 @@ module.exports = (() => {
                                             else if(i === messageReactions.length -1) add();
                                         };
                                     }
-                                  }, React.createElement("div", {
+                                  }, React.createElement(customEmojiTag(q.quickReaction.id), {
                                     className: "emojiSpriteImage-3ykvhZ",
+                                    src: customEmojiUrl(q.quickReaction.id),
                                     style: {
                                         "background-image": emojiUrl(q.quickReaction.name),
                                         "background-position": emojiPos(q.quickReaction.name),
@@ -148,7 +164,7 @@ module.exports = (() => {
                                         "image-rendering": "-webkit-optimize-contrast",
                                         "position": "absolute",
                                         "transform": "scale(0.7)",
-                                        "filter": "grayscale(100%) brightness(80%)",
+                                        "filter": "grayscale(100%) brightness(80%)"
                                     }
                                   }));
                             }}
@@ -179,12 +195,17 @@ module.exports = (() => {
                 new Settings.Textbox("Emoji Id", "Leave blank if none", this.quickReaction.id, (e) => {
                     if(e === "") return this.quickReaction.id = null;
                     this.quickReaction.id = e;
+                }),
+                new Settings.Switch("Animated", "Enable if your emoji is animated", false, (e) => {
+                    if(e) this.animated = true;
+                    else this.animated = false;
                 })
             )
         }
         saveSettings() {
             BdApi.saveData(config.info.name, "Emoji Name", this.quickReaction.name);
             BdApi.saveData(config.info.name, "Emoji Id", this.quickReaction.id);
+            BdApi.saveData(config.info.name, "Animated", this.animated);
         }
 
         onStop() {
