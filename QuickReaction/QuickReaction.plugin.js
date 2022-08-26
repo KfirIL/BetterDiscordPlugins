@@ -82,9 +82,18 @@ module.exports = (() => {
                     if(e !== null)
                     new Tooltip(e, "Quick Reaction", {style: "grey"});
                 }
-                
+
+                var url = 'url(\"/assets/9ea87b934848cd1f5c4bc7f1fcdac803.png\")';
                 const emojiPos = (emoji) => {
-                    if(this.emojis[emoji] === undefined) return this.emojis['default'];
+                    if(this.emojis[emoji] === undefined) {
+                        if(this.emojis['arms'][emoji] === undefined) {
+                            return this.emojis['default'];
+                        }
+                        else {
+                            url = 'url("/assets/28b51c7a7a5cf0f7690d36408f7646e1.png")'
+                            return this.emojis['arms'][emoji];
+                        }   
+                    }
                     else return this.emojis[emoji];
                 }
                 class ToolTip extends React.Component {
@@ -110,7 +119,7 @@ module.exports = (() => {
                                     ref: toolRef,
                                     tabindex: "0",
                                     onClick: () => {
-                                        if(this.emojis === undefined) return BdApi.showToast("You Must first select an emoji in the plugin's settings.", {type: 'danger'});
+                                        if(q.emojis === undefined) return BdApi.showToast("You MUST first select an emoji in the plugin's settings.", {type: 'danger'});
                                         const messageReactions = retProps[2].props.message.reactions;
                                         function add() {reaction.addReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction)}
                                         function remove() {reaction.removeReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction)}
@@ -123,8 +132,8 @@ module.exports = (() => {
                                   }, React.createElement("div", {
                                     className: "emojiSpriteImage-3ykvhZ",
                                     style: {
-                                        "background-image": 'url(\"/assets/9ea87b934848cd1f5c4bc7f1fcdac803.png\")',
-                                        "background-position": emojiPos,
+                                        "background-image": url,
+                                        "background-position": emojiPos(q.quickReaction.name),
                                         "background-size": "1344px 1216px",
                                         "height": "32px",
                                         "width": "32px",
