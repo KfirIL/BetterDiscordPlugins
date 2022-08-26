@@ -110,6 +110,7 @@ module.exports = (() => {
                                     ref: toolRef,
                                     tabindex: "0",
                                     onClick: () => {
+                                        if(this.emojis === undefined) return BdApi.showToast("You Must first select an emoji in the plugin's settings.", {type: 'danger'});
                                         const messageReactions = retProps[2].props.message.reactions;
                                         function add() {reaction.addReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction)}
                                         function remove() {reaction.removeReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction)}
@@ -120,16 +121,19 @@ module.exports = (() => {
                                         };
                                     }
                                   }, React.createElement("div", {
-                                    className: "contents-3ca1mk"
-                                  }, React.createElement("div", {
-                                    className: "sprite-2lxwfc",
+                                    className: "emojiSpriteImage-3ykvhZ",
                                     style: {
-                                        "background-position": emojiPos(q.quickReaction.name),
-                                        "background-size": "242px 110px",
-                                        "transform": "scale(1)",
-                                        "filter": "grayscale(100%)"
+                                        "background-image": 'url(\"/assets/9ea87b934848cd1f5c4bc7f1fcdac803.png\")',
+                                        "background-position": emojiPos,
+                                        "background-size": "1344px 1216px",
+                                        "height": "32px",
+                                        "width": "32px",
+                                        "image-rendering": "-webkit-optimize-contrast",
+                                        "position": "absolute",
+                                        "transform": "scale(0.7)",
+                                        "filter": "grayscale(100%) brightness(80%)",
                                     }
-                                  })));
+                                  }));
                             }}
                         return React.createElement(Button, null);
                     }
@@ -149,6 +153,9 @@ module.exports = (() => {
                     data.then((d) => {
                         const emojis = JSON.parse(d).emojis;
                         this.emojis = emojis;
+                        if(BdApi.loadData(config.info.name, "Emojis") !== null || BdApi.loadData(config.info.name, "Emojis") !== undefined)
+                        BdApi.saveData(config.info.name, "Emojis", this.emojis);
+                        else if(this.emojis !== BdApi.loadData(config.info.name, "Emojis"));
                         BdApi.saveData(config.info.name, "Emojis", this.emojis);
                         });
                     }),
