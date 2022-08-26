@@ -96,6 +96,14 @@ module.exports = (() => {
                     }
                     else return this.emojis['url'];
                 }
+                const emojiBackSize = (emoji) => {
+                    if(this.emojis[emoji] === undefined) {
+                        if(this.emojis['arms'][emoji] === undefined) return this.emojis['backgroundSize'];
+                        else return this.emojis['arms']['backgroundSize']; 
+                    }
+                    else return this.emojis['backgroundSize'];
+                }
+
                 class ToolTip extends React.Component {
                     constructor(props) {
                         super(props);
@@ -132,9 +140,9 @@ module.exports = (() => {
                                   }, React.createElement("div", {
                                     className: "emojiSpriteImage-3ykvhZ",
                                     style: {
-                                        "background-image": emojiUrl(),
+                                        "background-image": emojiUrl(q.quickReaction.name),
                                         "background-position": emojiPos(q.quickReaction.name),
-                                        "background-size": "1344px 1216px",
+                                        "background-size": emojiBackSize(q.quickReaction.name),
                                         "height": "32px",
                                         "width": "32px",
                                         "image-rendering": "-webkit-optimize-contrast",
