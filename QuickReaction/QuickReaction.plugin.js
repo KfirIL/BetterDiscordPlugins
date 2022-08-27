@@ -85,7 +85,6 @@ module.exports = (() => {
       });
       const ExpressionPicker = WebpackModules.getModule(m => m?.default?.displayName == 'ExpressionPickerContextMenu');
       Patcher.after(ExpressionPicker, "default", (_, args, ret) => {
-        console.log(args);
         const quickReacionMenuItem = ContextMenu.buildMenuItem({
           id: "quick-reacion",
           label: "Set Quick reaction",
@@ -97,7 +96,8 @@ module.exports = (() => {
               BdApi.saveData(config.info.name, "Emoji Id", this.quickReaction.id);
             } else {
               this.quickReaction.id = null;
-              const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/faceEmojisToPosition.json';
+              BdApi.saveData(config.info.name, "Emoji Id", this.quickReaction.id);
+              const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/emojisToPosition.json';
               const response = fetch(url);
               const data = response.then(function (resp) {
                 return resp.text();
@@ -105,7 +105,7 @@ module.exports = (() => {
               data.then(d => {
                 const emojis = JSON.parse(d).emojis;
                 this.emojis = emojis;
-                if (BdApi.loadData(config.info.name, "Emojis") !== null || BdApi.loadData(config.info.name, "Emojis") !== undefined) BdApi.saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== BdApi.loadData(config.info.name, "Emojis")) ;
+                if (BdApi.loadData(config.info.name, "Emojis") === null || BdApi.loadData(config.info.name, "Emojis") === undefined) BdApi.saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== BdApi.loadData(config.info.name, "Emojis")) ;
                 BdApi.saveData(config.info.name, "Emojis", this.emojis);
               });
               const clickedEmojiBackPos = args[0].target.firstChild.style.backgroundPosition;
@@ -113,12 +113,22 @@ module.exports = (() => {
 
               for (let i = 0; i < this.emojis.people.length; i++) {
                 const element = this.emojis.people[i];
-                if (element[1] === clickedEmojiBackPos && this.emojis.people[0][1] === clickedEmojiBackImage) return this.quickReaction.name = element[0];
+
+                if (element[1] === clickedEmojiBackPos && this.emojis.people[0][1] === clickedEmojiBackImage) {
+                  this.quickReaction.name = element[0];
+                  BdApi.saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+                  return;
+                }
               }
 
               for (let i = 0; i < this.emojis.arms.length; i++) {
                 const element = this.emojis.arms[i];
-                if (element[1] === clickedEmojiBackPos && this.emojis.arms[0][1] === clickedEmojiBackImage) return this.quickReaction.name = element[0];
+
+                if (element[1] === clickedEmojiBackPos && this.emojis.arms[0][1] === clickedEmojiBackImage) {
+                  this.quickReaction.name = element[0];
+                  BdApi.saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+                  return;
+                }
               }
             }
           }
