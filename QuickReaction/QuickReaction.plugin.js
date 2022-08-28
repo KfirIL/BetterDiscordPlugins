@@ -4,7 +4,7 @@
  * @authorLink undefined
  * @donate undefined
  * @patreon undefined
- * @website 
+ * @website https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction
  * @source https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js
  */
 /*@cc_on
@@ -32,7 +32,7 @@
 @else@*/
 
 module.exports = (() => {
-    const config = {"info":{"name":"QuickReaction","authors":[{"name":"Kfir","discord_id":"302774260236025857","github_username":"KfirIL"}],"version":"1.0.0","description":"Lets you quickly use a selected emoji.","github":"","github_raw":"https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js"},"changelog":[{"title":"Release","items":["Thanks For Installing!"]}],"main":"index.js"};
+    const config = {"info":{"name":"QuickReaction","authors":[{"name":"Kfir","discord_id":"302774260236025857","github_username":"KfirIL"}],"version":"1.0.0","description":"Lets you quickly react with a selected emoji.","github":"https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction","github_raw":"https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js"},"changelog":[{"title":"Release","items":["Thanks For Installing!"]}],"main":"index.js"};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -62,7 +62,8 @@ module.exports = (() => {
     WebpackModules,
     DiscordModules,
     ContextMenu,
-    Tooltip
+    Tooltip,
+    ReactTools
   } = Library;
   const {
     React
@@ -89,9 +90,20 @@ module.exports = (() => {
       const ExpressionPicker = WebpackModules.getModule(m => m?.default?.displayName == 'ExpressionPickerContextMenu');
       Patcher.after(ExpressionPicker, "default", (_, args, ret) => {
         const quickReacionMenuItem = ContextMenu.buildMenuItem({
-          id: "quick-reacion",
-          label: "Set Quick reaction",
+          label: "Set Quick Reaction",
           action: () => {
+            const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/emojisToPosition.json';
+            const response = fetch(url);
+            const data = response.then(function (resp) {
+              return resp.text();
+            });
+            data.then(d => {
+              const emojis = JSON.parse(d).emojis;
+              this.emojis = emojis;
+              if (loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== loadData(config.info.name, "Emojis")) ;
+              saveData(config.info.name, "Emojis", this.emojis);
+            });
+
             if (args[0].target.dataset.id !== undefined) {
               this.quickReaction.name = args[0].target.dataset.name;
               this.quickReaction.id = args[0].target.dataset.id;
@@ -105,22 +117,9 @@ module.exports = (() => {
             } else {
               this.quickReaction.id = null;
               saveData(config.info.name, "Emoji Id", this.quickReaction.id);
-              const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/emojisToPosition.json';
-              const response = fetch(url);
-              const data = response.then(function (resp) {
-                return resp.text();
-              });
-              data.then(d => {
-                const emojis = JSON.parse(d).emojis;
-                this.emojis = emojis;
-                if (loadData(config.info.name, "Emojis") === null || loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== loadData(config.info.name, "Emojis")) ;
-                saveData(config.info.name, "Emojis", this.emojis);
-              });
               const clickedEmojiBackPos = args[0].target.firstChild.style.backgroundPosition;
               const clickedEmojiBackImage = args[0].target.firstChild.style.backgroundImage;
               Object.keys(this.emojis).forEach(elementr => {
-                if (elementr === "default") return;
-
                 for (let i = 0; i < this.emojis[elementr].length; i++) {
                   const element = this.emojis[elementr][i];
 
@@ -132,39 +131,73 @@ module.exports = (() => {
                 }
               });
             }
+
+            const elements = document.getElementsByClassName('button-3bklZh');
+
+            for (let i = 0; i < elements.length; i++) {
+              const element = elements[i];
+
+              if (element.id === 'quick-reaction') {
+                const t = ReactTools.getOwnerInstance(element);
+                t.forceUpdate(this.quickReaction);
+              }
+            }
           }
         });
         const menuItems = [ret.props.children];
         menuItems.push(quickReacionMenuItem);
         ret.props.children = menuItems;
       });
-      if (this.quickReaction.name === undefined) return;
+
+      if (this.quickReaction.name === undefined) {
+        this.quickReaction.name = '😀';
+        saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+      }
+
       const miniPopover = WebpackModules.getModule(m => m?.default?.displayName == 'MiniPopover');
       Patcher.after(miniPopover, "default", (_, args, ret) => {
         const retProps = ret.props.children;
         if (!(retProps && retProps[1].props) || !retProps[1].props.canReact) return;
-        const q = new QuickReaction();
+        const q = this;
 
         class Button extends React.Component {
-          constructor() {
-            super();
-            this.tagName = 'div';
-            this.r = q.quickReaction.name;
+          constructor(props) {
+            super(props);
+            this.props.tagName = 'div';
+            this.state = {
+              quickReaction: {
+                name: q.quickReaction.name,
+                id: q.quickReaction.id
+              }
+            };
+            this.forceUpdate = this.forceUpdate.bind(this);
           }
 
-          toolRef(e) {
+          forceUpdate(value) {
+            let reLoad = this.state.quickReaction;
+            reLoad = {
+              name: value.name,
+              id: value.id
+            };
+            this.setState({
+              quickReaction: {
+                name: reLoad.name,
+                id: reLoad.id
+              }
+            });
+          }
+
+          tooltipRef(e) {
             if (e !== null) new Tooltip(e, "Quick Reaction", {
               style: "grey"
             });
           }
 
           emojiPos() {
-            if (q.quickReaction.id !== null) return undefined;
-            const emoji = q.quickReaction.name;
+            if (this.state.quickReaction.id !== null) return undefined;
+            const emoji = this.state.quickReaction.name;
             let retValue;
             Object.keys(q.emojis).forEach(elementr => {
-              if (elementr === "default") return q.emojis.default;
-
               for (let i = 0; i < q.emojis[elementr].length; i++) {
                 const element = q.emojis[elementr][i];
                 if (element[0] === emoji) return retValue = element[1];
@@ -174,12 +207,10 @@ module.exports = (() => {
           }
 
           emojiUrl() {
-            if (q.quickReaction.id !== null) return undefined;
-            const emoji = q.quickReaction.name;
+            if (this.state.quickReaction.id !== null) return undefined;
+            const emoji = this.state.quickReaction.name;
             let retValue;
             Object.keys(q.emojis).forEach(elementr => {
-              if (elementr === "default") return q.emojis.faces[0][1];
-
               for (let i = 0; i < q.emojis[elementr].length; i++) {
                 const element = q.emojis[elementr][i];
                 if (element[0] === emoji) return retValue = q.emojis[elementr][0][1];
@@ -189,12 +220,10 @@ module.exports = (() => {
           }
 
           emojiBackSize() {
-            if (q.quickReaction.id !== null) return '32px';
-            const emoji = q.quickReaction.name;
+            if (this.state.quickReaction.id !== null) return '32px';
+            const emoji = this.state.quickReaction.name;
             let retValue;
             Object.keys(q.emojis).forEach(elementr => {
-              if (elementr === "default") return q.emojis.faces[1][1];
-
               for (let i = 0; i < q.emojis[elementr].length; i++) {
                 const element = q.emojis[elementr][i];
                 if (element[0] === emoji) return retValue = q.emojis[elementr][1][1];
@@ -212,44 +241,43 @@ module.exports = (() => {
           }
 
           customEmojiTag() {
-            const emoji = q.quickReaction.id;
-            if (emoji !== null) this.tagName = 'img';
+            const emoji = this.state.quickReaction.id;
+            if (emoji !== null) this.props.tagName = 'img';
           }
 
           render() {
             return /*#__PURE__*/React.createElement("div", {
               className: "button-3bklZh",
               ariaLabel: "Quick Reaction",
+              id: "quick-reaction",
               role: "button",
-              ref: this.toolRef,
+              ref: this.tooltipRef,
               tabindex: "0",
               onClick: () => {
+                this.forceUpdate(q.quickReaction);
                 const reaction = WebpackModules.getByProps('addReaction', 'removeReaction');
-                if (q.emojis === undefined || q.quickReaction.name === undefined || q.quickReaction.name === "") return showToast("You MUST first pick an emoji.", {
-                  type: 'danger'
-                });
                 const messageReactions = retProps[2].props.message.reactions;
-                console.log(messageReactions);
+                const o = this;
 
                 function add() {
-                  reaction.addReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction);
+                  reaction.addReaction(retProps[2].props.channel.id, retProps[2].props.message.id, o.state.quickReaction);
                 }
 
                 function remove() {
-                  reaction.removeReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction);
+                  reaction.removeReaction(retProps[2].props.channel.id, retProps[2].props.message.id, o.state.quickReaction);
                 }
 
                 if (messageReactions.length === 0) return add();
 
                 for (let i = 0; i < messageReactions.length; i++) {
-                  if (messageReactions[i].me && messageReactions[i].emoji.name === q.quickReaction.name && messageReactions[i].emoji.id === q.quickReaction.id) return remove();else if (i === messageReactions.length - 1) add();
+                  if (messageReactions[i].me && messageReactions[i].emoji.name === this.state.quickReaction.name && messageReactions[i].emoji.id === this.state.quickReaction.id) return remove();else if (i === messageReactions.length - 1) add();
                 }
 
                 ;
               }
-            }, this.customEmojiTag(), /*#__PURE__*/React.createElement(this.tagName, {
+            }, this.customEmojiTag(), /*#__PURE__*/React.createElement(this.props.tagName, {
               className: "emojiSpriteImage-3ykvhZ",
-              src: this.customEmojiUrl(q.quickReaction.id),
+              src: this.customEmojiUrl(this.state.quickReaction.id),
               style: {
                 "background-image": this.emojiUrl(),
                 "background-position": this.emojiPos(),
@@ -266,6 +294,7 @@ module.exports = (() => {
 
         }
 
+        ;
         retProps.unshift( /*#__PURE__*/React.createElement(Button, {
           key: "quick-reaction"
         }));
