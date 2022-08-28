@@ -62,21 +62,24 @@ module.exports = (() => {
     WebpackModules,
     DiscordModules,
     ContextMenu,
-    Settings,
     Tooltip
   } = Library;
   const {
     React
   } = DiscordModules;
+  const {
+    loadData,
+    saveData
+  } = BdApi;
   return class QuickReaction extends Plugin {
     constructor() {
       super();
       this.quickReaction = {
-        name: BdApi.loadData(config.info.name, "Emoji Name"),
-        id: BdApi.loadData(config.info.name, "Emoji Id")
+        name: loadData(config.info.name, "Emoji Name"),
+        id: loadData(config.info.name, "Emoji Id")
       };
-      this.animated = BdApi.loadData(config.info.name, "Animated");
-      this.emojis = BdApi.loadData(config.info.name, "Emojis");
+      this.animated = loadData(config.info.name, "Animated");
+      this.emojis = loadData(config.info.name, "Emojis");
     }
 
     onStart() {
@@ -92,11 +95,16 @@ module.exports = (() => {
             if (args[0].target.dataset.id !== undefined) {
               this.quickReaction.name = args[0].target.dataset.name;
               this.quickReaction.id = args[0].target.dataset.id;
-              BdApi.saveData(config.info.name, "Emoji Name", this.quickReaction.name);
-              BdApi.saveData(config.info.name, "Emoji Id", this.quickReaction.id);
+              saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+              saveData(config.info.name, "Emoji Id", this.quickReaction.id);
+              const url = "https://cdn.discordapp.com/emojis/" + this.quickReaction.id + ".gif?size=48&quality=lossless";
+              fetch(url).then(res => {
+                if (res.ok) this.animated = true;else this.animated = false;
+                saveData(config.info.name, "Animated", this.animated);
+              });
             } else {
               this.quickReaction.id = null;
-              BdApi.saveData(config.info.name, "Emoji Id", this.quickReaction.id);
+              saveData(config.info.name, "Emoji Id", this.quickReaction.id);
               const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/emojisToPosition.json';
               const response = fetch(url);
               const data = response.then(function (resp) {
@@ -105,31 +113,24 @@ module.exports = (() => {
               data.then(d => {
                 const emojis = JSON.parse(d).emojis;
                 this.emojis = emojis;
-                if (BdApi.loadData(config.info.name, "Emojis") === null || BdApi.loadData(config.info.name, "Emojis") === undefined) BdApi.saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== BdApi.loadData(config.info.name, "Emojis")) ;
-                BdApi.saveData(config.info.name, "Emojis", this.emojis);
+                if (loadData(config.info.name, "Emojis") === null || loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== loadData(config.info.name, "Emojis")) ;
+                saveData(config.info.name, "Emojis", this.emojis);
               });
               const clickedEmojiBackPos = args[0].target.firstChild.style.backgroundPosition;
               const clickedEmojiBackImage = args[0].target.firstChild.style.backgroundImage;
+              Object.keys(this.emojis).forEach(elementr => {
+                if (elementr === "default") return;
 
-              for (let i = 0; i < this.emojis.people.length; i++) {
-                const element = this.emojis.people[i];
+                for (let i = 0; i < this.emojis[elementr].length; i++) {
+                  const element = this.emojis[elementr][i];
 
-                if (element[1] === clickedEmojiBackPos && this.emojis.people[0][1] === clickedEmojiBackImage) {
-                  this.quickReaction.name = element[0];
-                  BdApi.saveData(config.info.name, "Emoji Name", this.quickReaction.name);
-                  return;
+                  if (element[1] === clickedEmojiBackPos && this.emojis[elementr][0][1] === clickedEmojiBackImage) {
+                    this.quickReaction.name = element[0];
+                    saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+                    return;
+                  }
                 }
-              }
-
-              for (let i = 0; i < this.emojis.arms.length; i++) {
-                const element = this.emojis.arms[i];
-
-                if (element[1] === clickedEmojiBackPos && this.emojis.arms[0][1] === clickedEmojiBackImage) {
-                  this.quickReaction.name = element[0];
-                  BdApi.saveData(config.info.name, "Emoji Name", this.quickReaction.name);
-                  return;
-                }
-              }
+              });
             }
           }
         });
@@ -137,151 +138,138 @@ module.exports = (() => {
         menuItems.push(quickReacionMenuItem);
         ret.props.children = menuItems;
       });
+      if (this.quickReaction.name === undefined) return;
       const miniPopover = WebpackModules.getModule(m => m?.default?.displayName == 'MiniPopover');
       Patcher.after(miniPopover, "default", (_, args, ret) => {
         const retProps = ret.props.children;
         if (!(retProps && retProps[1].props) || !retProps[1].props.canReact) return;
+        const q = new QuickReaction();
 
-        class ToolTip extends React.Component {
-          constructor(props) {
-            super(props);
-            props.allowOverflow = false, props.color = "primary", props.forceOpen, props.hideOnClick = true, props.position = "top", props.shouldShow = true, props.spacing = 8, props.text = "Quick Reaction";
+        class Button extends React.Component {
+          constructor() {
+            super();
+            this.tagName = 'div';
+            this.r = q.quickReaction.name;
+          }
+
+          toolRef(e) {
+            if (e !== null) new Tooltip(e, "Quick Reaction", {
+              style: "grey"
+            });
+          }
+
+          emojiPos() {
+            if (q.quickReaction.id !== null) return undefined;
+            const emoji = q.quickReaction.name;
+            let retValue;
+            Object.keys(q.emojis).forEach(elementr => {
+              if (elementr === "default") return q.emojis.default;
+
+              for (let i = 0; i < q.emojis[elementr].length; i++) {
+                const element = q.emojis[elementr][i];
+                if (element[0] === emoji) return retValue = element[1];
+              }
+            });
+            return retValue;
+          }
+
+          emojiUrl() {
+            if (q.quickReaction.id !== null) return undefined;
+            const emoji = q.quickReaction.name;
+            let retValue;
+            Object.keys(q.emojis).forEach(elementr => {
+              if (elementr === "default") return q.emojis.faces[0][1];
+
+              for (let i = 0; i < q.emojis[elementr].length; i++) {
+                const element = q.emojis[elementr][i];
+                if (element[0] === emoji) return retValue = q.emojis[elementr][0][1];
+              }
+            });
+            return retValue;
+          }
+
+          emojiBackSize() {
+            if (q.quickReaction.id !== null) return '32px';
+            const emoji = q.quickReaction.name;
+            let retValue;
+            Object.keys(q.emojis).forEach(elementr => {
+              if (elementr === "default") return q.emojis.faces[1][1];
+
+              for (let i = 0; i < q.emojis[elementr].length; i++) {
+                const element = q.emojis[elementr][i];
+                if (element[0] === emoji) return retValue = q.emojis[elementr][1][1];
+              }
+            });
+            return retValue;
+          }
+
+          customEmojiUrl(emoji) {
+            const gifOrWebp = () => {
+              if (q.animated === true) return 'gif';else return 'webp';
+            };
+
+            if (emoji !== null) return 'https://cdn.discordapp.com/emojis/' + emoji + '.' + gifOrWebp() + '?size=48&quality=lossless';
+          }
+
+          customEmojiTag() {
+            const emoji = q.quickReaction.id;
+            if (emoji !== null) this.tagName = 'img';
           }
 
           render() {
-            const q = new QuickReaction();
-
-            class Button extends React.Component {
-              constructor() {
-                super();
-                this.tagName = 'div';
-              }
-
-              toolRef(e) {
-                if (e !== null) new Tooltip(e, "Quick Reaction", {
-                  style: "grey"
+            return /*#__PURE__*/React.createElement("div", {
+              className: "button-3bklZh",
+              ariaLabel: "Quick Reaction",
+              role: "button",
+              ref: this.toolRef,
+              tabindex: "0",
+              onClick: () => {
+                const reaction = WebpackModules.getByProps('addReaction', 'removeReaction');
+                if (q.emojis === undefined || q.quickReaction.name === undefined || q.quickReaction.name === "") return showToast("You MUST first pick an emoji.", {
+                  type: 'danger'
                 });
-              }
+                const messageReactions = retProps[2].props.message.reactions;
+                console.log(messageReactions);
 
-              emojiPos(emoji) {
-                if (q.quickReaction.id !== null) return undefined;
-
-                for (let i = 0; i < q.emojis.people.length; i++) {
-                  const element = q.emojis.people[i];
-                  if (element[0] === emoji) return element[1];
+                function add() {
+                  reaction.addReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction);
                 }
 
-                for (let i = 0; i < q.emojis.arms.length; i++) {
-                  const element = q.emojis.arms[i];
-                  if (element[0] === emoji) return element[1];
+                function remove() {
+                  reaction.removeReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction);
                 }
 
-                return q.emojis.default;
-              }
+                if (messageReactions.length === 0) return add();
 
-              emojiUrl(emoji) {
-                if (q.quickReaction.id !== null) return undefined;
-
-                for (let i = 0; i < q.emojis.arms.length; i++) {
-                  const element = q.emojis.arms[i];
-                  if (element[0] === emoji) return q.emojis.arms[0][1];
+                for (let i = 0; i < messageReactions.length; i++) {
+                  if (messageReactions[i].me && messageReactions[i].emoji.name === q.quickReaction.name && messageReactions[i].emoji.id === q.quickReaction.id) return remove();else if (i === messageReactions.length - 1) add();
                 }
 
-                return q.emojis.people[0][1];
+                ;
               }
-
-              customEmojiUrl(emoji) {
-                const gifOrWebp = () => {
-                  if (q.animated === true) return 'gif';else return 'webp';
-                };
-
-                if (emoji !== null) return 'https://cdn.discordapp.com/emojis/' + emoji + '.' + gifOrWebp() + '?size=48&quality=lossless';
+            }, this.customEmojiTag(), /*#__PURE__*/React.createElement(this.tagName, {
+              className: "emojiSpriteImage-3ykvhZ",
+              src: this.customEmojiUrl(q.quickReaction.id),
+              style: {
+                "background-image": this.emojiUrl(),
+                "background-position": this.emojiPos(),
+                "background-size": this.emojiBackSize(),
+                "height": "32px",
+                "width": "32px",
+                "image-rendering": "-webkit-optimize-contrast",
+                "position": "absolute",
+                "transform": "scale(0.7)",
+                "filter": "grayscale(100%) brightness(80%)"
               }
-
-              emojiBackSize(emoji) {
-                if (q.quickReaction.id !== null) return '32px';
-
-                for (let i = 0; i < q.emojis.arms.length; i++) {
-                  const element = q.emojis.arms[i];
-                  if (element[0] === emoji) return q.emojis.arms[1][1];
-                }
-
-                return q.emojis.people[1][1];
-              }
-
-              customEmojiTag() {
-                const emoji = q.quickReaction.id;
-                if (emoji !== null) this.tagName = 'img';
-              }
-
-              render() {
-                return /*#__PURE__*/React.createElement("div", {
-                  className: "button-3bklZh",
-                  ariaLabel: "Quick Reaction",
-                  role: "button",
-                  ref: this.toolRef,
-                  tabindex: "0",
-                  onClick: () => {
-                    const reaction = WebpackModules.getByProps('addReaction', 'removeReaction');
-                    if (q.emojis === undefined || q.quickReaction.name === undefined || q.quickReaction.name === "") return BdApi.showToast("You MUST first pick an emoji.", {
-                      type: 'danger'
-                    });
-                    const messageReactions = retProps[2].props.message.reactions;
-
-                    function add() {
-                      reaction.addReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction);
-                    }
-
-                    function remove() {
-                      reaction.removeReaction(retProps[2].props.channel.id, retProps[2].props.message.id, q.quickReaction);
-                    }
-
-                    if (messageReactions.length === 0) return add();
-
-                    for (let i = 0; i < messageReactions.length; i++) {
-                      if (messageReactions[i].me && messageReactions[i].emoji.name === q.quickReaction.name && messageReactions[i].emoji.id === q.quickReaction.id) return remove();else if (i === messageReactions.length - 1) add();
-                    }
-
-                    ;
-                  }
-                }, this.customEmojiTag(), /*#__PURE__*/React.createElement(this.tagName, {
-                  className: "emojiSpriteImage-3ykvhZ",
-                  src: this.customEmojiUrl(q.quickReaction.id),
-                  style: {
-                    "background-image": this.emojiUrl(q.quickReaction.name),
-                    "background-position": this.emojiPos(q.quickReaction.name),
-                    "background-size": this.emojiBackSize(q.quickReaction.name),
-                    "height": "32px",
-                    "width": "32px",
-                    "image-rendering": "-webkit-optimize-contrast",
-                    "position": "absolute",
-                    "transform": "scale(0.7)",
-                    "filter": "grayscale(100%) brightness(80%)"
-                  }
-                }));
-              }
-
-            }
-
-            return /*#__PURE__*/React.createElement(Button, null);
+            }));
           }
 
         }
 
-        retProps.unshift( /*#__PURE__*/React.createElement(ToolTip, {
+        retProps.unshift( /*#__PURE__*/React.createElement(Button, {
           key: "quick-reaction"
         }));
       });
-    }
-
-    getSettingsPanel() {
-      return Settings.SettingPanel.build(this.saveSettings.bind(this), new Settings.Switch("Animated", "Enable this if your emoji is animated", this.animated, e => {
-        if (e) this.animated = true;else this.animated = false;
-      }));
-    }
-
-    saveSettings() {
-      BdApi.saveData(config.info.name, "Animated", this.animated);
     }
 
     onStop() {
