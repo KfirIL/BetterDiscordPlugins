@@ -87,23 +87,22 @@ module.exports = (() => {
       Patcher.before(Logger, "log", (t, a) => {
         a[0] = "Patched Message: " + a[0];
       });
+      const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/emojisToPosition.json';
+      const response = fetch(url);
+      const data = response.then(function (resp) {
+        return resp.text();
+      });
+      data.then(d => {
+        const emojis = JSON.parse(d).emojis;
+        this.emojis = emojis;
+        if (loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== loadData(config.info.name, "Emojis")) ;
+        saveData(config.info.name, "Emojis", this.emojis);
+      });
       const ExpressionPicker = WebpackModules.getModule(m => m?.default?.displayName == 'ExpressionPickerContextMenu');
       Patcher.after(ExpressionPicker, "default", (_, args, ret) => {
         const quickReacionMenuItem = ContextMenu.buildMenuItem({
           label: "Set Quick Reaction",
           action: () => {
-            const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/emojisToPosition.json';
-            const response = fetch(url);
-            const data = response.then(function (resp) {
-              return resp.text();
-            });
-            data.then(d => {
-              const emojis = JSON.parse(d).emojis;
-              this.emojis = emojis;
-              if (loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== loadData(config.info.name, "Emojis")) ;
-              saveData(config.info.name, "Emojis", this.emojis);
-            });
-
             if (args[0].target.dataset.id !== undefined) {
               this.quickReaction.name = args[0].target.dataset.name;
               this.quickReaction.id = args[0].target.dataset.id;
@@ -151,7 +150,9 @@ module.exports = (() => {
 
       if (this.quickReaction.name === undefined) {
         this.quickReaction.name = '😀';
+        this.quickReaction.id = null;
         saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+        saveData(config.info.name, "Emoji Id", this.quickReaction.id);
       }
 
       const miniPopover = WebpackModules.getModule(m => m?.default?.displayName == 'MiniPopover');
@@ -232,12 +233,15 @@ module.exports = (() => {
             return retValue;
           }
 
-          customEmojiUrl(emoji) {
+          customEmojiUrl() {
+            const emoji = this.state.quickReaction.id;
+            if (emoji === null) return undefined;
+
             const gifOrWebp = () => {
               if (q.animated === true) return 'gif';else return 'webp';
             };
 
-            if (emoji !== null) return 'https://cdn.discordapp.com/emojis/' + emoji + '.' + gifOrWebp() + '?size=48&quality=lossless';
+            return 'https://cdn.discordapp.com/emojis/' + emoji + '.' + gifOrWebp() + '?size=48&quality=lossless';
           }
 
           customEmojiTag() {
@@ -277,7 +281,7 @@ module.exports = (() => {
               }
             }, this.customEmojiTag(), /*#__PURE__*/React.createElement(this.props.tagName, {
               className: "emojiSpriteImage-3ykvhZ",
-              src: this.customEmojiUrl(this.state.quickReaction.id),
+              src: this.customEmojiUrl(),
               style: {
                 "background-image": this.emojiUrl(),
                 "background-position": this.emojiPos(),
