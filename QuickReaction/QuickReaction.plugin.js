@@ -58,7 +58,6 @@ module.exports = (() => {
         const plugin = module.exports = (Plugin, Library) => {
   const {
     Patcher,
-    Logger,
     WebpackModules,
     DiscordModules,
     ContextMenu,
@@ -81,12 +80,10 @@ module.exports = (() => {
       };
       this.animated = loadData(config.info.name, "Animated");
       this.emojis = loadData(config.info.name, "Emojis");
+      this.ref = React.createRef();
     }
 
     onStart() {
-      Patcher.before(Logger, "log", (t, a) => {
-        a[0] = "Patched Message: " + a[0];
-      });
       const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/emojisToPosition.json';
       const response = fetch(url);
       const data = response.then(function (resp) {
@@ -98,6 +95,14 @@ module.exports = (() => {
         if (loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== loadData(config.info.name, "Emojis")) ;
         saveData(config.info.name, "Emojis", this.emojis);
       });
+
+      if (this.quickReaction.name === undefined) {
+        this.quickReaction.name = '😀';
+        this.quickReaction.id = null;
+        saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+        saveData(config.info.name, "Emoji Id", this.quickReaction.id);
+      }
+
       const ExpressionPicker = WebpackModules.getModule(m => m?.default?.displayName == 'ExpressionPickerContextMenu');
       Patcher.after(ExpressionPicker, "default", (_, args, ret) => {
         const quickReacionMenuItem = ContextMenu.buildMenuItem({
@@ -131,30 +136,13 @@ module.exports = (() => {
               });
             }
 
-            const elements = document.getElementsByClassName('button-3bklZh');
-
-            for (let i = 0; i < elements.length; i++) {
-              const element = elements[i];
-
-              if (element.id === 'quick-reaction') {
-                const t = ReactTools.getOwnerInstance(element);
-                t.forceUpdate(this.quickReaction);
-              }
-            }
+            ReactTools.getOwnerInstance(this.ref).forceUpdate(this.quickReaction);
           }
         });
         const menuItems = [ret.props.children];
         menuItems.push(quickReacionMenuItem);
         ret.props.children = menuItems;
       });
-
-      if (this.quickReaction.name === undefined) {
-        this.quickReaction.name = '😀';
-        this.quickReaction.id = null;
-        saveData(config.info.name, "Emoji Name", this.quickReaction.name);
-        saveData(config.info.name, "Emoji Id", this.quickReaction.id);
-      }
-
       const miniPopover = WebpackModules.getModule(m => m?.default?.displayName == 'MiniPopover');
       Patcher.after(miniPopover, "default", (_, args, ret) => {
         const retProps = ret.props.children;
@@ -172,6 +160,13 @@ module.exports = (() => {
               }
             };
             this.forceUpdate = this.forceUpdate.bind(this);
+
+            this.ref = e => {
+              if (e !== null) new Tooltip(e, "Quick Reaction", {
+                style: "grey"
+              });
+              q.ref = e;
+            };
           }
 
           forceUpdate(value) {
@@ -185,12 +180,6 @@ module.exports = (() => {
                 name: reLoad.name,
                 id: reLoad.id
               }
-            });
-          }
-
-          tooltipRef(e) {
-            if (e !== null) new Tooltip(e, "Quick Reaction", {
-              style: "grey"
             });
           }
 
@@ -255,7 +244,7 @@ module.exports = (() => {
               ariaLabel: "Quick Reaction",
               id: "quick-reaction",
               role: "button",
-              ref: this.tooltipRef,
+              ref: this.ref,
               tabindex: "0",
               onClick: () => {
                 this.forceUpdate(q.quickReaction);
@@ -307,6 +296,12 @@ module.exports = (() => {
 
     onStop() {
       Patcher.unpatchAll();
+      const buttons = document.getElementsByClassName('button-3bklZh');
+
+      for (let i = 0; i < buttons.length; i++) {
+        const element = buttons[i];
+        if (element.id === this.ref.id) element.remove();
+      }
     }
 
   };
