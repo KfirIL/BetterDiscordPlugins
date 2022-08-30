@@ -136,7 +136,15 @@ module.exports = (() => {
               });
             }
 
-            ReactTools.getOwnerInstance(this.ref).forceUpdate(this.quickReaction);
+            const buttons = document.getElementsByClassName('button-3bklZh');
+
+            for (let i = 0; i < buttons.length; i++) {
+              const element = buttons[i];
+
+              if (element.id === this.ref.id) {
+                ReactTools.getOwnerInstance(element).forceUpdate(this.quickReaction);
+              }
+            }
           }
         });
         const menuItems = [ret.props.children];
@@ -157,9 +165,11 @@ module.exports = (() => {
               quickReaction: {
                 name: q.quickReaction.name,
                 id: q.quickReaction.id
-              }
+              },
+              visible: true
             };
             this.forceUpdate = this.forceUpdate.bind(this);
+            this.invisible = this.invisible.bind(this);
 
             this.ref = e => {
               if (e !== null) new Tooltip(e, "Quick Reaction", {
@@ -181,6 +191,13 @@ module.exports = (() => {
                 id: reLoad.id
               }
             });
+
+            this.ref = e => {
+              if (e !== null) new Tooltip(e, "Quick Reaction", {
+                style: "grey"
+              });
+              q.ref = e;
+            };
           }
 
           emojiPos() {
@@ -222,6 +239,12 @@ module.exports = (() => {
             return retValue;
           }
 
+          invisible() {
+            this.setState({
+              visible: false
+            });
+          }
+
           customEmojiUrl() {
             const emoji = this.state.quickReaction.id;
             if (emoji === null) return undefined;
@@ -239,7 +262,7 @@ module.exports = (() => {
           }
 
           render() {
-            return /*#__PURE__*/React.createElement("div", {
+            return this.state.visible ? /*#__PURE__*/React.createElement("div", {
               className: "button-3bklZh",
               ariaLabel: "Quick Reaction",
               id: "quick-reaction",
@@ -282,7 +305,7 @@ module.exports = (() => {
                 "transform": "scale(0.7)",
                 "filter": "grayscale(100%) brightness(80%)"
               }
-            }));
+            })) : null;
           }
 
         }
@@ -300,7 +323,10 @@ module.exports = (() => {
 
       for (let i = 0; i < buttons.length; i++) {
         const element = buttons[i];
-        if (element.id === this.ref.id) element.remove();
+
+        if (element.id === 'quick-reaction') {
+          ReactTools.getOwnerInstance(element).invisible();
+        }
       }
     }
 
