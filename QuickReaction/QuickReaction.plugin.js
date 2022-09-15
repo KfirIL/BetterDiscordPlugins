@@ -62,24 +62,28 @@ module.exports = (() => {
     DiscordModules,
     ContextMenu,
     Tooltip,
-    ReactTools
+    ReactTools,
+    Settings
   } = Library;
   const {
     React
   } = DiscordModules;
   const {
     loadData,
-    saveData
+    saveData,
+    Webpack
   } = BdApi;
   return class QuickReaction extends Plugin {
     constructor() {
       super();
       this.quickReaction = {
         name: loadData(config.info.name, "Emoji Name"),
-        id: loadData(config.info.name, "Emoji Id")
+        id: loadData(config.info.name, "Emoji Id"),
+        url: loadData(config.info.name, "Emoji Url")
       };
       this.animated = loadData(config.info.name, "Animated");
       this.emojis = loadData(config.info.name, "Emojis");
+      this.colored = loadData(config.info.name, "Colored");
       this.ref = React.createRef();
     }
 
@@ -103,8 +107,9 @@ module.exports = (() => {
         saveData(config.info.name, "Emoji Id", this.quickReaction.id);
       }
 
-      const ExpressionPicker = WebpackModules.getModule(m => m?.default?.displayName == 'ExpressionPickerContextMenu');
-      Patcher.after(ExpressionPicker, "default", (_, args, ret) => {
+      Webpack.waitForModule(m => m?.default?.displayName === 'ExpressionPickerContextMenu').then(ExpressionPickerContextMenu => Patcher.after(ExpressionPickerContextMenu, "default", (_, args, ret) => {
+        if (args[0].position === null) return;
+        console.log('checking if it is actually patching anything (on discord reload it is not showing this text)');
         const quickReacionMenuItem = ContextMenu.buildMenuItem({
           label: "Set Quick Reaction",
           action: () => {
@@ -113,7 +118,7 @@ module.exports = (() => {
               this.quickReaction.id = args[0].target.dataset.id;
               saveData(config.info.name, "Emoji Name", this.quickReaction.name);
               saveData(config.info.name, "Emoji Id", this.quickReaction.id);
-              const url = "https://cdn.discordapp.com/emojis/" + this.quickReaction.id + ".gif?size=48&quality=lossless";
+              const url = `https://cdn.discordapp.com/emojis/${this.quickReaction.id}.gif?size=48&quality=lossless`;
               fetch(url).then(res => {
                 if (res.ok) this.animated = true;else this.animated = false;
                 saveData(config.info.name, "Animated", this.animated);
@@ -127,9 +132,11 @@ module.exports = (() => {
                 for (let i = 0; i < this.emojis[elementr].length; i++) {
                   const element = this.emojis[elementr][i];
 
-                  if (element[1] === clickedEmojiBackPos && this.emojis[elementr][0][1] === clickedEmojiBackImage) {
+                  if (element[1] === clickedEmojiBackPos) {
+                    this.quickReaction.url = clickedEmojiBackImage;
                     this.quickReaction.name = element[0];
                     saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+                    saveData(config.info.name, "Emoji Url", this.quickReaction.url);
                     return;
                   }
                 }
@@ -140,18 +147,15 @@ module.exports = (() => {
 
             for (let i = 0; i < buttons.length; i++) {
               const element = buttons[i];
-
-              if (element.id === this.ref.id) {
-                ReactTools.getOwnerInstance(element).forceUpdate(this.quickReaction);
-              }
+              if (element.id === this.ref.id) ReactTools.getOwnerInstance(element).forceUpdate();
             }
           }
         });
         const menuItems = [ret.props.children];
         menuItems.push(quickReacionMenuItem);
         ret.props.children = menuItems;
-      });
-      const miniPopover = WebpackModules.getModule(m => m?.default?.displayName == 'MiniPopover');
+      }));
+      const miniPopover = WebpackModules.getModule(m => m.default.displayName === 'MiniPopover');
       Patcher.after(miniPopover, "default", (_, args, ret) => {
         const retProps = ret.props.children;
         if (!(retProps && retProps[1].props) || !retProps[1].props.canReact) return;
@@ -164,7 +168,8 @@ module.exports = (() => {
             this.state = {
               quickReaction: {
                 name: q.quickReaction.name,
-                id: q.quickReaction.id
+                id: q.quickReaction.id,
+                url: q.quickReaction.url
               },
               visible: true
             };
@@ -179,16 +184,13 @@ module.exports = (() => {
             };
           }
 
-          forceUpdate(value) {
-            let reLoad = this.state.quickReaction;
-            reLoad = {
-              name: value.name,
-              id: value.id
-            };
+          forceUpdate() {
+            let value = q.quickReaction;
             this.setState({
               quickReaction: {
-                name: reLoad.name,
-                id: reLoad.id
+                name: value.name,
+                id: value.id,
+                url: value.url
               }
             });
 
@@ -215,15 +217,7 @@ module.exports = (() => {
 
           emojiUrl() {
             if (this.state.quickReaction.id !== null) return undefined;
-            const emoji = this.state.quickReaction.name;
-            let retValue;
-            Object.keys(q.emojis).forEach(elementr => {
-              for (let i = 0; i < q.emojis[elementr].length; i++) {
-                const element = q.emojis[elementr][i];
-                if (element[0] === emoji) return retValue = q.emojis[elementr][0][1];
-              }
-            });
-            return retValue;
+            return this.state.quickReaction.url;
           }
 
           emojiBackSize() {
@@ -233,7 +227,7 @@ module.exports = (() => {
             Object.keys(q.emojis).forEach(elementr => {
               for (let i = 0; i < q.emojis[elementr].length; i++) {
                 const element = q.emojis[elementr][i];
-                if (element[0] === emoji) return retValue = q.emojis[elementr][1][1];
+                if (element[0] === emoji) return retValue = q.emojis[elementr][0][1];
               }
             });
             return retValue;
@@ -253,12 +247,16 @@ module.exports = (() => {
               if (q.animated === true) return 'gif';else return 'webp';
             };
 
-            return 'https://cdn.discordapp.com/emojis/' + emoji + '.' + gifOrWebp() + '?size=48&quality=lossless';
+            return `https://cdn.discordapp.com/emojis/${emoji}.${gifOrWebp()}?size=48&quality=lossless`;
           }
 
           customEmojiTag() {
             const emoji = this.state.quickReaction.id;
             if (emoji !== null) this.props.tagName = 'img';
+          }
+
+          colored() {
+            if (q.colored) return undefined;else return "grayscale(100%) brightness(80%)";
           }
 
           render() {
@@ -270,7 +268,7 @@ module.exports = (() => {
               ref: this.ref,
               tabindex: "0",
               onClick: () => {
-                this.forceUpdate(q.quickReaction);
+                this.forceUpdate();
                 const reaction = WebpackModules.getByProps('addReaction', 'removeReaction');
                 const messageReactions = retProps[2].props.message.reactions;
                 const o = this;
@@ -303,7 +301,7 @@ module.exports = (() => {
                 "image-rendering": "-webkit-optimize-contrast",
                 "position": "absolute",
                 "transform": "scale(0.7)",
-                "filter": "grayscale(100%) brightness(80%)"
+                "filter": this.colored()
               }
             })) : null;
           }
@@ -315,6 +313,22 @@ module.exports = (() => {
           key: "quick-reaction"
         }));
       });
+    }
+
+    getSettingsPanel() {
+      return Settings.SettingPanel.build(this.saveSettings.bind(this), new Settings.Switch("Colored", "Enable this if you want the quick reaction button colored", this.colored, e => {
+        if (e) this.colored = true;else this.colored = false;
+      }));
+    }
+
+    saveSettings() {
+      BdApi.saveData(config.info.name, "Colored", this.colored);
+      const buttons = document.getElementsByClassName('button-3bklZh');
+
+      for (let i = 0; i < buttons.length; i++) {
+        const element = buttons[i];
+        if (element.id === this.ref.id) ReactTools.getOwnerInstance(element).forceUpdate();
+      }
     }
 
     onStop() {

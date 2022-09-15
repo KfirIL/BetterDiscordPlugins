@@ -1,7 +1,6 @@
 {
   "emojis": {
       "regular": [
-        ["url", "url(\"/assets/228e7d3eba8c203e17d012f57a28e238.png\")"],
         ["backgroundSize", "1344px 1216px"],
         ["😀","0px 0px"],
         ["😃","-32px 0px"],
@@ -1744,7 +1743,6 @@
         ["🇺🇳","-960px -1184px"]
       ],
       "armsNpeople": [
-        ["url", "url(\"/assets/8fecb2340534cf853b62c6ae0d3d9519.png\")"],
         ["backgroundSize", "320px 928px"],
         ["🫶","0px 0px"],
         ["🤲","-32px 0px"],
