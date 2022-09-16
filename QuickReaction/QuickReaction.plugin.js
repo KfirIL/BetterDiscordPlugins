@@ -1,11 +1,9 @@
 /**
  * @name QuickReaction
- * @invite undefined
- * @authorLink undefined
- * @donate undefined
- * @patreon undefined
- * @website https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction
- * @source https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js
+ * @version 1.0.0
+ * @description Lets you quickly react with a selected emoji.
+ * @source https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction/QuickReaction.plugin.js
+ * @updateUrl https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js
  */
 /*@cc_on
 @if (@_jscript)
@@ -44,7 +42,7 @@ module.exports = (() => {
             ],
             "version": "1.0.0",
             "description": "Lets you quickly react with a selected emoji.",
-            "github": "https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction",
+            "github": "https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction/QuickReaction.plugin.js",
             "github_raw": "https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js"
       },
       "changelog": [
@@ -54,16 +52,13 @@ module.exports = (() => {
                         "Thanks For Installing!"
                   ]
             }
-      ],
-      "main": "index.js"
+      ]
 };
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
         getName() {return config.info.name;}
         getAuthor() {return config.info.authors.map(a => a.name).join(", ");}
-        getDescription() {return config.info.description;}
-        getVersion() {return config.info.version;}
         load() {
             BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${config.info.name} is missing. Please click Download Now to install it.`, {
                 confirmText: "Download Now",
@@ -125,8 +120,8 @@ module.exports = (() => {
         saveData(config.info.name, "Emojis", this.emojis);
 
         if (this.quickReaction.name === undefined) {
-          this.quickReaction.name = '😀';
-          this.quickReaction.id = null;
+          this.quickReaction.name = this.emojis.default[2];
+          this.quickReaction.id = this.emojis.default[3];
           this.quickReaction.tagName = 'div';
           this.quickReaction.url = this.emojis.default[1];
           this.quickReaction.backSize = this.emojis.default[0];
