@@ -1,5 +1,6 @@
 {
   "emojis": {
+      "default": ["1344px 1216px", "url(\"/assets/228e7d3eba8c203e17d012f57a28e238.png\")"],
       "regular": [
         ["backgroundSize", "1344px 1216px"],
         ["😀","0px 0px"],
