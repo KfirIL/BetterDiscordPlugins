@@ -121,23 +121,22 @@ module.exports = (() => {
       data.then(d => {
         const emojis = JSON.parse(d).emojis;
         this.emojis = emojis;
-        if (loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (this.emojis !== loadData(config.info.name, "Emojis")) ;
+        if (loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (JSON.stringify(this.emojis, null, 4) !== loadData(config.info.name, "Emojis")) ;
         saveData(config.info.name, "Emojis", this.emojis);
+
+        if (this.quickReaction.name === undefined) {
+          this.quickReaction.name = '😀';
+          this.quickReaction.id = null;
+          this.quickReaction.tagName = 'div';
+          this.quickReaction.url = this.emojis.default[1];
+          this.quickReaction.backSize = this.emojis.default[0];
+          saveData(config.info.name, "Emoji Name", this.quickReaction.name);
+          saveData(config.info.name, "Emoji Id", this.quickReaction.id);
+          saveData(config.info.name, "Emoji Url", this.quickReaction.url);
+          saveData(config.info.name, "Emoji Back Size", this.quickReaction.backSize);
+          saveData(config.info.name, "Emoji Tag Name", this.quickReaction.tagName);
+        }
       });
-
-      if (this.quickReaction.name === undefined) {
-        this.quickReaction.name = '😀';
-        this.quickReaction.id = null;
-        this.quickReaction.tagName = 'div';
-        this.quickReaction.url = this.emojis.default[1];
-        this.quickReaction.backSize = this.emojis.default[0];
-        saveData(config.info.name, "Emoji Name", this.quickReaction.name);
-        saveData(config.info.name, "Emoji Id", this.quickReaction.id);
-        saveData(config.info.name, "Emoji Url", this.quickReaction.url);
-        saveData(config.info.name, "Emoji Back Size", this.quickReaction.backSize);
-        saveData(config.info.name, "Emoji Tag Name", this.quickReaction.tagName);
-      }
-
       Webpack.waitForModule(m => m?.default?.displayName === 'ExpressionPickerContextMenu').then(ExpressionPickerContextMenu => Patcher.after(ExpressionPickerContextMenu, "default", (_, args, ret) => {
         if (args[0].position === null) return;
         const quickReacionMenuItem = ContextMenu.buildMenuItem({
