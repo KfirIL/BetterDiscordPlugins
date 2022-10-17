@@ -73,132 +73,146 @@ if (!global.ZeresPluginLibrary) {
  
 module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
      const plugin = (Plugin, Library) => {
-    const {
-        Patcher,
-        WebpackModules,
-        Tooltip
-    } = Library;
+  const { Patcher, WebpackModules, Tooltip } = Library;
 
-    const { React, Dispatcher } = Library.DiscordModules;
-    const { ContextMenu } = BdApi;
-    const currentUserId = WebpackModules.getByProps("getUser").getCurrentUser().id;
-    let emojisDb = [];
+  const { React, Dispatcher } = Library.DiscordModules;
+  const { ContextMenu } = BdApi;
+  const currentUserId =
+    WebpackModules.getByProps("getUser").getCurrentUser().id;
+  let emojisDb = [];
 
-    const fetchEmojis = async (emoji) => {
-        // Emojis names for discord (taken from discord-emoji-converter)
-        const res = await fetch('https://raw.githubusercontent.com/ArkinSolomon/discord-emoji-converter/master/emojis.json');
-        const data = await res.json();
-        
-        emojisDb = data;
-    }
+  const fetchEmojis = async () => {
+    // Emojis names for discord (taken from discord-emoji-converter)
+    const res = await fetch(
+      "https://raw.githubusercontent.com/ArkinSolomon/discord-emoji-converter/master/emojis.json"
+    );
+    const data = await res.json();
 
-    const emojify = (emoji) => Object.entries(emojisDb).filter(entry => entry[0] === emoji);
+    emojisDb = data;
+  };
 
-    // A very ugly way to find MiniPopover "Module". Thanks, DISCORD!
-    const miniPopover = WebpackModules.getModule(m => m.ZP && m.ZP.name === 'm'); 
-    const miniPopoverBtn = miniPopover.zx;
+  const emojify = (emoji) =>
+    Object.entries(emojisDb).filter((entry) => entry[0] === emoji);
 
-    const toolTip = (e) => {
-        if(e === null) return;
-        new Tooltip(e.ref, "Quick Reaction", {
-            style: 'grey'
-        });
-    }
+  // A very ugly way to find MiniPopover "Module". Thanks, DISCORD!
+  const miniPopover = WebpackModules.getModule(
+    (m) => m.ZP && m.ZP.name === "m"
+  );
+  const miniPopoverBtn = miniPopover.zx;
 
-    const ReactionTypes = {
-        add: "MESSAGE_REACTION_ADD",
-        remove : "MESSAGE_REACTION_REMOVE"
-    }
+  const toolTip = (e) => {
+    if (e === null) return;
+    new Tooltip(e.ref, "Quick Reaction", {
+      style: "grey",
+    });
+  };
 
-    const onClickMainBtn = (msg, emoji) => {
-        let reactionType = msg.reactions.some(reaction => reaction.emoji.name === emoji.name &&
-             reaction.emoji.id === emoji.id && reaction.me) 
-             ? ReactionTypes.remove : ReactionTypes.add; // Checking if you already reacted with this emoji.
-        
-        Dispatcher.dispatch({ // Adding/Removing reaction from the message.
-            type: reactionType,
-            channelId: msg.channel_id,
-            messageId: msg.id,
-            userId: currentUserId,
-            emoji: emoji,
-            optimistic: true
-        })
-    }
+  const ReactionTypes = {
+    add: "MESSAGE_REACTION_ADD",
+    remove: "MESSAGE_REACTION_REMOVE",
+  };
 
-    const contextMenu = (component, target) => {
-        let emoji = target.dataset.id === undefined ? {
+  const onClickMainBtn = (msg, emoji) => {
+    let reactionType = msg.reactions.some(
+      (reaction) =>
+        reaction.emoji.name === emoji.name &&
+        reaction.emoji.id === emoji.id &&
+        reaction.me
+    )
+      ? ReactionTypes.remove
+      : ReactionTypes.add; // Checking if you already reacted with this emoji.
+
+    Dispatcher.dispatch({
+      // Adding/Removing reaction from the message.
+      type: reactionType,
+      channelId: msg.channel_id,
+      messageId: msg.id,
+      userId: currentUserId,
+      emoji: emoji,
+      optimistic: true,
+    });
+  };
+
+  const contextMenu = (component, target) => {
+    let emoji =
+      target.dataset.id === undefined
+        ? {
             animated: false,
             id: null,
-            name: emojify(target.dataset.name)[0][1]
-        } : {
+            name: emojify(target.dataset.name)[0][1],
+          }
+        : {
             animated: target.firstElementChild.src.includes(".gif"),
             id: target.dataset.id,
-            name: target.dataset.name
-        };
+            name: target.dataset.name,
+          };
 
+    const quickReaction = ContextMenu.buildItem({
+      label: "Set as Quick Reaction",
+      action: () => {
+        BdApi.Data.save(config.name, "Emoji", emoji);
+      },
+    });
+    component.props.children = [component.props.children, quickReaction];
+  };
 
-        const quickReaction = ContextMenu.buildItem({
-            label: "Set as Quick Reaction",
-            action: () => {
-                BdApi.Data.save(config.name, "Emoji", emoji)
-            }
-        })
-        component.props.children = [component.props.children, quickReaction]
+  return class extends Plugin {
+    constructor() {
+      super();
+      this.emoji = BdApi.Data.load(config.name, "Emoji");
+      if (this.emoji === undefined)
+        BdApi.Data.save(config.name, "Emoji", {
+          animated: false,
+          id: null,
+          name: "😀",
+        });
+      this.unpatchContextMenu = ContextMenu.patch(
+        "expression-picker",
+        (component, { target }) => contextMenu(component, target)
+      );
     }
 
-return class extends Plugin {
-        constructor() {
-            super();
-            this.emoji = BdApi.Data.load(config.name, "Emoji");
-            if(this.emoji === undefined)
-                BdApi.Data.save(config.name, "Emoji", {
-                    animated: false,
-                    id: null,
-                    name: "😀"
-                })
-            this.unpatchContextMenu = ContextMenu.patch("expression-picker", (component, { target }) => contextMenu(component, target));
-        }
+    onStart() {
+      fetchEmojis(); // Fetching emojis database
 
-        onStart() {
-            fetchEmojis(); // Fetching emojis database
+      Patcher.after(miniPopover, "ZP", (_, args, retValue) => {
+        const wrraperProps = retValue.props.children[1].props;
+        if (!wrraperProps.canReact) return; // Checking if You can react in this channel.
 
-            Patcher.after(miniPopover, "ZP", (_, args, retValue) => {
-                const wrraperProps = retValue.props.children[1].props;
-                if(!wrraperProps.canReact) return; // Checking if You can react in this channel.
+        const mainButton = () => {
+          return miniPopoverBtn({
+            text: "Quick Reaction",
+            key: "quick-reaction",
+            ref: toolTip,
+            onClick: () => {
+              this.emoji = BdApi.Data.load(config.name, "Emoji"); // Re-load emoji in case of any change.
 
-                const mainButton = () => {
-                    return miniPopoverBtn({
-                        text: 'Quick Reaction',
-                        key: 'quick-reaction',
-                        ref: toolTip,
-                        onClick: () => {
-                            this.emoji = BdApi.Data.load(config.name, "Emoji"); // Re-load emoji in case of any change.
+              onClickMainBtn(
+                retValue.props.children[2].props.message,
+                this.emoji
+              ); // Main click Function
+            },
+            children: /*#__PURE__*/ React.createElement("div", {
+              className: "sprite-2lxwfc",
+              style: {
+                "background-position": "0px 0px",
+                "background-size": "242px 110px",
+                transform: "scale(1)",
+                filter: "grayscale(100%)",
+              },
+            }),
+          });
+        };
 
-                            onClickMainBtn(retValue.props.children[2].props.message, this.emoji); // Main click Function
-                        },
-                        children:
-                        /*#__PURE__*/React.createElement("div", {
-                            className: "sprite-2lxwfc",
-                            style: {
-                                "background-position": "0px 0px",
-                                "background-size": "242px 110px",
-                                "transform": "scale(1)",
-                                "filter": "grayscale(100%)"
-                            }
-                        })
-                    })
-                }
+        retValue.props.children = [mainButton(), ...retValue.props.children]; // Adding the main button
+      });
+    }
 
-                retValue.props.children = [mainButton(), ...retValue.props.children]; // Adding the main button
-            })
-        }
-
-        onStop() {
-            Patcher.unpatchAll();
-            this.unpatchContextMenu();
-        }
-    };
-
+    onStop() {
+      Patcher.unpatchAll();
+      this.unpatchContextMenu();
+    }
+  };
 };
      return plugin(Plugin, Api);
 })(global.ZeresPluginLibrary.buildPlugin(config));
