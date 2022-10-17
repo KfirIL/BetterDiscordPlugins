@@ -1,9 +1,10 @@
 /**
- * @name QuickReaction
- * @version 1.0.0
+ * @name Quick Reaction
  * @description Lets you quickly react with a selected emoji.
- * @source https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction/QuickReaction.plugin.js
- * @updateUrl https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js
+ * @version 0.0.1
+ * @author Kfir
+ * @authorId 302774260236025857
+ * @source https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction
  */
 /*@cc_on
 @if (@_jscript)
@@ -28,335 +29,176 @@
     WScript.Quit();
 
 @else@*/
-
-module.exports = (() => {
-    const config = {
-      "info": {
-            "name": "QuickReaction",
-            "authors": [
-                  {
-                        "name": "Kfir",
-                        "discord_id": "302774260236025857",
-                        "github_username": "KfirIL"
-                  }
-            ],
-            "version": "1.0.0",
-            "description": "Lets you quickly react with a selected emoji.",
-            "github": "https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction/QuickReaction.plugin.js",
-            "github_raw": "https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/QuickReaction.plugin.js"
-      },
-      "changelog": [
-            {
-                  "title": "Release",
-                  "items": [
-                        "Thanks For Installing!"
-                  ]
-            }
-      ]
+const config = {
+    main: "index.js",
+    id: "QuickReaction",
+    name: "Quick Reaction",
+    author: "Kfir",
+    authorId: "302774260236025857",
+    authorLink: "",
+    version: "0.0.1",
+    description: "Lets you quickly react with a selected emoji.",
+    website: "",
+    source: "https://github.com/KfirIL/BetterDiscordPlugins/tree/main/QuickReaction",
+    patreon: "",
+    donate: "",
+    invite: ""
 };
-
-    return !global.ZeresPluginLibrary ? class {
-        constructor() {this._config = config;}
-        getName() {return config.info.name;}
-        getAuthor() {return config.info.authors.map(a => a.name).join(", ");}
-        load() {
-            BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${config.info.name} is missing. Please click Download Now to install it.`, {
-                confirmText: "Download Now",
-                cancelText: "Cancel",
-                onConfirm: () => {
-                    require("request").get("https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js", async (error, response, body) => {
-                        if (error) return require("electron").shell.openExternal("https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js");
-                        await new Promise(r => require("fs").writeFile(require("path").join(BdApi.Plugins.folder, "0PluginLibrary.plugin.js"), body, r));
+class Dummy {
+    constructor() {this._config = config;}
+    start() {}
+    stop() {}
+}
+ 
+if (!global.ZeresPluginLibrary) {
+    BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${config.name ?? config.info.name} is missing. Please click Download Now to install it.`, {
+        confirmText: "Download Now",
+        cancelText: "Cancel",
+        onConfirm: () => {
+            require("request").get("https://betterdiscord.app/gh-redirect?id=9", async (err, resp, body) => {
+                if (err) return require("electron").shell.openExternal("https://betterdiscord.app/Download?id=9");
+                if (resp.statusCode === 302) {
+                    require("request").get(resp.headers.location, async (error, response, content) => {
+                        if (error) return require("electron").shell.openExternal("https://betterdiscord.app/Download?id=9");
+                        await new Promise(r => require("fs").writeFile(require("path").join(BdApi.Plugins.folder, "0PluginLibrary.plugin.js"), content, r));
                     });
                 }
+                else {
+                    await new Promise(r => require("fs").writeFile(require("path").join(BdApi.Plugins.folder, "0PluginLibrary.plugin.js"), body, r));
+                }
             });
         }
-        start() {}
-        stop() {}
-    } : (([Plugin, Api]) => {
-        const plugin = module.exports = (Plugin, Library) => {
-  const {
-    Patcher,
-    WebpackModules,
-    DiscordModules,
-    ContextMenu,
-    Tooltip,
-    ReactTools,
-    Settings
-  } = Library;
-  const {
-    React
-  } = DiscordModules;
-  const {
-    loadData,
-    saveData,
-    Webpack
-  } = BdApi;
-  return class QuickReaction extends Plugin {
-    constructor() {
-      super();
-      this.quickReaction = {
-        name: loadData(config.info.name, "Emoji Name"),
-        id: loadData(config.info.name, "Emoji Id"),
-        url: loadData(config.info.name, "Emoji Url"),
-        backSize: loadData(config.info.name, "Emoji Back Size"),
-        tagName: loadData(config.info.name, "Emoji Tag Name")
-      };
-      this.emojis = loadData(config.info.name, "Emojis");
-      this.colored = loadData(config.info.name, "Colored");
-      this.ref = React.createRef();
+    });
+}
+ 
+module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
+     const plugin = (Plugin, Library) => {
+    const {
+        Patcher,
+        WebpackModules,
+        Tooltip
+    } = Library;
+
+    const { React, Dispatcher } = Library.DiscordModules;
+    const { ContextMenu } = BdApi;
+    let emojisDb = [];
+
+    const fetchEmojis = async (emoji) => {
+        // Emojis names for discord (taken from discord-emoji-converter)
+        const res = await fetch('https://raw.githubusercontent.com/ArkinSolomon/discord-emoji-converter/master/emojis.json');
+        const data = await res.json();
+        
+        emojisDb = data;
     }
 
-    onStart() {
-      const url = 'https://raw.githubusercontent.com/KfirIL/BetterDiscordPlugins/main/QuickReaction/emojisToPosition.json';
-      const response = fetch(url);
-      const data = response.then(function (resp) {
-        return resp.text();
-      });
-      data.then(d => {
-        const emojis = JSON.parse(d).emojis;
-        this.emojis = emojis;
-        if (loadData(config.info.name, "Emojis") === undefined) saveData(config.info.name, "Emojis", this.emojis);else if (JSON.stringify(this.emojis, null, 4) !== loadData(config.info.name, "Emojis")) ;
-        saveData(config.info.name, "Emojis", this.emojis);
+    const emojify = (emoji) => Object.entries(emojisDb).filter(entry => entry[0] === emoji);
 
-        if (this.quickReaction.name === undefined) {
-          this.quickReaction.name = this.emojis.default[2];
-          this.quickReaction.id = this.emojis.default[3];
-          this.quickReaction.tagName = 'div';
-          this.quickReaction.url = this.emojis.default[1];
-          this.quickReaction.backSize = this.emojis.default[0];
-          saveData(config.info.name, "Emoji Name", this.quickReaction.name);
-          saveData(config.info.name, "Emoji Id", this.quickReaction.id);
-          saveData(config.info.name, "Emoji Url", this.quickReaction.url);
-          saveData(config.info.name, "Emoji Back Size", this.quickReaction.backSize);
-          saveData(config.info.name, "Emoji Tag Name", this.quickReaction.tagName);
-        }
-      });
-      Webpack.waitForModule(m => m?.default?.displayName === 'ExpressionPickerContextMenu').then(ExpressionPickerContextMenu => Patcher.after(ExpressionPickerContextMenu, "default", (_, args, ret) => {
-        if (args[0].position === null) return;
-        const quickReacionMenuItem = ContextMenu.buildMenuItem({
-          label: "Set As Quick Reaction",
-          action: () => {
-            if (args[0].target.dataset.id !== undefined) {
-              this.quickReaction.name = args[0].target.dataset.name;
-              this.quickReaction.id = args[0].target.dataset.id;
-              this.quickReaction.url = args[0].target.firstChild.currentSrc;
-              this.quickReaction.tagName = args[0].target.firstChild.localName;
-              saveData(config.info.name, "Emoji Name", this.quickReaction.name);
-              saveData(config.info.name, "Emoji Id", this.quickReaction.id);
-              saveData(config.info.name, "Emoji Url", this.quickReaction.url);
-              saveData(config.info.name, "Emoji Tag Name", this.quickReaction.tagName);
-            } else {
-              const clickedEmojiBackPos = args[0].target.firstChild.style.backgroundPosition;
-              const clickedEmojiBackSize = args[0].target.firstChild.style.backgroundSize;
-              const clickedEmojiBackImage = args[0].target.firstChild.style.backgroundImage;
-              const clickedEmojiTagName = args[0].target.firstChild.localName;
-              this.quickReaction.id = null;
-              this.quickReaction.url = clickedEmojiBackImage;
-              this.quickReaction.backSize = clickedEmojiBackSize;
-              this.quickReaction.tagName = clickedEmojiTagName;
-              saveData(config.info.name, "Emoji Id", this.quickReaction.id);
-              saveData(config.info.name, "Emoji Url", this.quickReaction.url);
-              saveData(config.info.name, "Emoji Back Size", this.quickReaction.backSize);
-              saveData(config.info.name, "Emoji Tag Name", this.quickReaction.tagName);
-              Object.keys(this.emojis).forEach(elementr => {
-                for (let i = 0; i < this.emojis[elementr].length; i++) {
-                  const element = this.emojis[elementr][i];
+    // A very ugly way to find MiniPopover "Module". Thanks, DISCORD!
+    const miniPopover = WebpackModules.getModule(m => m.ZP && m.ZP.name === 'm'); 
+    const miniPopoverBtn = miniPopover.zx;
 
-                  if (element[1] === clickedEmojiBackPos && this.emojis[elementr][0][1] === clickedEmojiBackSize) {
-                    this.quickReaction.name = element[0];
-                    saveData(config.info.name, "Emoji Name", this.quickReaction.name);
-                    return;
-                  }
-                }
-              });
-            }
-
-            const buttons = document.getElementsByClassName('button-3bklZh');
-
-            for (let i = 0; i < buttons.length; i++) {
-              const element = buttons[i];
-              if (element.id === this.ref.id) ReactTools.getOwnerInstance(element).forceUpdate();
-            }
-          }
+    const toolTip = (e) => {
+        if(e === null) return;
+        new Tooltip(e.ref, "Quick Reaction", {
+            style: 'grey'
         });
-        const menuItems = [ret.props.children];
-        menuItems.push(quickReacionMenuItem);
-        ret.props.children = menuItems;
-      }));
-      const miniPopover = WebpackModules.getModule(m => m.default.displayName === 'MiniPopover');
-      Patcher.after(miniPopover, "default", (_, args, ret) => {
-        const retProps = ret.props.children;
-        if (!(retProps && retProps[1].props) || !retProps[1].props.canReact) return;
-        const q = this;
+    }
 
-        class Button extends React.Component {
-          constructor() {
+    const ReactionTypes = {
+        add: "MESSAGE_REACTION_ADD",
+        remove : "MESSAGE_REACTION_REMOVE"
+    }
+
+    const onClickMainBtn = (msg, emoji) => {
+        let reactionType = msg.reactions.some(reaction => reaction.emoji.name === emoji.name &&
+             reaction.emoji.id === emoji.id && reaction.me) 
+             ? ReactionTypes.remove : ReactionTypes.add; // Checking if you already reacted with this emoji.
+        
+        Dispatcher.dispatch({ // Adding/Removing reaction from the message.
+            type: reactionType,
+            channelId: msg.channel_id,
+            messageId: msg.id,
+            userId: msg.author.id,
+            emoji: emoji,
+            optimistic: true
+        })
+    }
+
+    const contextMenu = (component, target) => {
+        let emoji = target.dataset.id === undefined ? {
+            animated: false,
+            id: null,
+            name: emojify(target.dataset.name)[0][1]
+        } : {
+            animated: target.firstElementChild.src.includes(".gif"),
+            id: target.dataset.id,
+            name: target.dataset.name
+        };
+
+
+        const quickReaction = ContextMenu.buildItem({
+            label: "Set as Quick Reaction",
+            action: () => {
+                BdApi.Data.save(config.name, "Emoji", emoji)
+            }
+        })
+        component.props.children = [component.props.children, quickReaction]
+    }
+
+return class extends Plugin {
+        constructor() {
             super();
-            this.state = {
-              quickReaction: {
-                name: q.quickReaction.name,
-                id: q.quickReaction.id,
-                url: q.quickReaction.url,
-                backSize: q.quickReaction.backSize,
-                tagName: q.quickReaction.tagName
-              },
-              visible: true
-            };
-            this.forceUpdate = this.forceUpdate.bind(this);
-            this.invisible = this.invisible.bind(this);
-
-            this.ref = e => {
-              if (e !== null) new Tooltip(e, "Quick Reaction");
-              q.ref = e;
-            };
-          }
-
-          forceUpdate() {
-            let value = q.quickReaction;
-            this.setState({
-              quickReaction: {
-                name: value.name,
-                id: value.id,
-                url: value.url,
-                backSize: value.backSize,
-                tagName: value.tagName
-              }
-            });
-
-            this.ref = e => {
-              if (e !== null) new Tooltip(e, "Quick Reaction");
-              q.ref = e;
-            };
-          }
-
-          emojiPos() {
-            if (this.state.quickReaction.id !== null) return undefined;
-            const emoji = this.state.quickReaction.name;
-            let retValue;
-            Object.keys(q.emojis).forEach(elementr => {
-              for (let i = 0; i < q.emojis[elementr].length; i++) {
-                const element = q.emojis[elementr][i];
-                if (element[0] === emoji) return retValue = element[1];
-              }
-            });
-            return retValue;
-          }
-
-          emojiUrl() {
-            if (this.state.quickReaction.id !== null) return undefined;
-            return this.state.quickReaction.url;
-          }
-
-          emojiBackSize() {
-            if (this.state.quickReaction.id !== null) return '32px';
-            return this.state.quickReaction.backSize;
-          }
-
-          invisible() {
-            this.setState({
-              visible: false
-            });
-          }
-
-          customEmojiUrl() {
-            if (this.state.quickReaction.id === null) return undefined;
-            return this.state.quickReaction.url;
-          }
-
-          colored() {
-            if (q.colored) return undefined;else return "grayscale(100%) brightness(80%)";
-          }
-
-          render() {
-            return this.state.visible ? /*#__PURE__*/React.createElement("div", {
-              className: "button-3bklZh",
-              ariaLabel: "Quick Reaction",
-              id: "quick-reaction",
-              role: "button",
-              ref: this.ref,
-              tabindex: "0",
-              onClick: () => {
-                this.forceUpdate();
-                const reaction = WebpackModules.getByProps('addReaction', 'removeReaction');
-                const messageReactions = retProps[2].props.message.reactions;
-                const o = this;
-
-                function add() {
-                  reaction.addReaction(retProps[2].props.channel.id, retProps[2].props.message.id, o.state.quickReaction);
-                }
-
-                function remove() {
-                  reaction.removeReaction(retProps[2].props.channel.id, retProps[2].props.message.id, o.state.quickReaction);
-                }
-
-                if (messageReactions.length === 0) return add();
-
-                for (let i = 0; i < messageReactions.length; i++) {
-                  if (messageReactions[i].me && messageReactions[i].emoji.name === this.state.quickReaction.name && messageReactions[i].emoji.id === this.state.quickReaction.id) return remove();else if (i === messageReactions.length - 1) add();
-                }
-
-                ;
-              }
-            }, /*#__PURE__*/React.createElement(this.state.quickReaction.tagName, {
-              className: "emojiSpriteImage-3ykvhZ",
-              src: this.customEmojiUrl(),
-              style: {
-                "background-image": this.emojiUrl(),
-                "background-position": this.emojiPos(),
-                "background-size": this.emojiBackSize(),
-                "height": "32px",
-                "width": "32px",
-                "image-rendering": "-webkit-optimize-contrast",
-                "-ms-interpolation-mode": "nearest-neighbor",
-                "position": "absolute",
-                "transform": "scale(0.7)",
-                "filter": this.colored()
-              }
-            })) : null;
-          }
-
+            this.emoji = BdApi.Data.load(config.name, "Emoji");
+            if(this.emoji === undefined)
+                BdApi.Data.save(config.name, "Emoji", {
+                    animated: false,
+                    id: null,
+                    name: "😀"
+                })
+            this.unpatchContextMenu = ContextMenu.patch("expression-picker", (component, { target }) => contextMenu(component, target));
         }
 
-        ;
-        retProps.unshift( /*#__PURE__*/React.createElement(Button, {
-          key: "quick-reaction"
-        }));
-      });
-    }
+        onStart() {
+            fetchEmojis(); // Fetching emojis database
 
-    getSettingsPanel() {
-      return Settings.SettingPanel.build(this.saveSettings.bind(this), new Settings.Switch("Colored", "Enable this if you want the quick reaction button colored", this.colored, e => {
-        if (e) this.colored = true;else this.colored = false;
-      }));
-    }
+            Patcher.after(miniPopover, "ZP", (_, args, retValue) => {
+                const wrraperProps = retValue.props.children[1].props;
+                if(!wrraperProps.canReact) return; // Checking if You can react in this channel.
 
-    saveSettings() {
-      BdApi.saveData(config.info.name, "Colored", this.colored);
-      const buttons = document.getElementsByClassName('button-3bklZh');
+                const mainButton = () => {
+                    return miniPopoverBtn({
+                        text: 'Quick Reaction',
+                        key: 'quick-reaction',
+                        ref: toolTip,
+                        onClick: () => {
+                            this.emoji = BdApi.Data.load(config.name, "Emoji"); // Re-load emoji in case of any change.
 
-      for (let i = 0; i < buttons.length; i++) {
-        const element = buttons[i];
-        if (element.id === this.ref.id) ReactTools.getOwnerInstance(element).forceUpdate();
-      }
-    }
+                            onClickMainBtn(retValue.props.children[2].props.message, this.emoji); // Main click Function
+                        },
+                        children:
+                        /*#__PURE__*/React.createElement("div", {
+                            className: "sprite-2lxwfc",
+                            style: {
+                                "background-position": "0px 0px",
+                                "background-size": "242px 110px",
+                                "transform": "scale(1)",
+                                "filter": "grayscale(100%)"
+                            }
+                        })
+                    })
+                }
 
-    onStop() {
-      Patcher.unpatchAll();
-      const buttons = document.getElementsByClassName('button-3bklZh');
-
-      for (let i = 0; i < buttons.length; i++) {
-        const element = buttons[i];
-
-        if (element.id === 'quick-reaction') {
-          ReactTools.getOwnerInstance(element).invisible();
+                retValue.props.children = [mainButton(), ...retValue.props.children]; // Adding the main button
+            })
         }
-      }
-    }
 
-  };
-};;
-        return plugin(Plugin, Api);
-    })(global.ZeresPluginLibrary.buildPlugin(config));
-})();
+        onStop() {
+            Patcher.unpatchAll();
+            this.unpatchContextMenu();
+        }
+    };
+
+};
+     return plugin(Plugin, Api);
+})(global.ZeresPluginLibrary.buildPlugin(config));
 /*@end@*/
