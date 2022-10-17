@@ -81,6 +81,7 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
 
     const { React, Dispatcher } = Library.DiscordModules;
     const { ContextMenu } = BdApi;
+    const currentUserId = WebpackModules.getByProps("getUser").getCurrentUser().id;
     let emojisDb = [];
 
     const fetchEmojis = async (emoji) => {
@@ -110,6 +111,7 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
     }
 
     const onClickMainBtn = (msg, emoji) => {
+        console.log(msg, emoji);
         let reactionType = msg.reactions.some(reaction => reaction.emoji.name === emoji.name &&
              reaction.emoji.id === emoji.id && reaction.me) 
              ? ReactionTypes.remove : ReactionTypes.add; // Checking if you already reacted with this emoji.
@@ -118,7 +120,7 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
             type: reactionType,
             channelId: msg.channel_id,
             messageId: msg.id,
-            userId: msg.author.id,
+            userId: currentUserId,
             emoji: emoji,
             optimistic: true
         })
