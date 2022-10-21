@@ -75,10 +75,8 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
      const plugin = (Plugin, Library) => {
   const { Patcher, WebpackModules, Tooltip } = Library;
 
-  const { React, Dispatcher } = Library.DiscordModules;
+  const { React, APIModule } = Library.DiscordModules;
   const { ContextMenu } = BdApi;
-  const currentUserId =
-    WebpackModules.getByProps("getUser").getCurrentUser().id;
   let emojisDb = [];
 
   const fetchEmojis = async () => {
@@ -94,6 +92,18 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
   const emojify = (emoji) =>
     Object.entries(emojisDb).filter((entry) => entry[0] === emoji);
 
+  const react = (message, reaction, type) => {
+    const emoji =
+      reaction.id !== null
+        ? encodeURI(`${reaction.name}:${reaction.id}`)
+        : encodeURI(reaction.name);
+
+    APIModule[type]({
+      url: `/channels/${message.channel_id}/messages/${message.id}/reactions/${emoji}/%40me`,
+      oldFormErrors: true,
+    });
+  };
+
   // A very ugly way to find MiniPopover "Module". Thanks, DISCORD!
   const miniPopover = WebpackModules.getModule(
     (m) => m.ZP && m.ZP.name === "m"
@@ -107,30 +117,15 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
     });
   };
 
-  const ReactionTypes = {
-    add: "MESSAGE_REACTION_ADD",
-    remove: "MESSAGE_REACTION_REMOVE",
-  };
-
   const onClickMainBtn = (msg, emoji) => {
-    let reactionType = msg.reactions.some(
+    msg.reactions.some(
       (reaction) =>
         reaction.emoji.name === emoji.name &&
         reaction.emoji.id === emoji.id &&
         reaction.me
     )
-      ? ReactionTypes.remove
-      : ReactionTypes.add; // Checking if you already reacted with this emoji.
-
-    Dispatcher.dispatch({
-      // Adding/Removing reaction from the message.
-      type: reactionType,
-      channelId: msg.channel_id,
-      messageId: msg.id,
-      userId: currentUserId,
-      emoji: emoji,
-      optimistic: true,
-    });
+      ? react(msg, emoji, "delete")
+      : react(msg, emoji, "put");
   };
 
   const contextMenu = (component, target) => {
@@ -181,7 +176,7 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
 
         const mainButton = () => {
           return miniPopoverBtn({
-            text: "Quick Reaction",
+            label: "Quick Reaction",
             key: "quick-reaction",
             ref: toolTip,
             onClick: () => {
