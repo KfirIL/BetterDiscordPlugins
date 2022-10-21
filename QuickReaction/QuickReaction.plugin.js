@@ -75,22 +75,8 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
      const plugin = (Plugin, Library) => {
   const { Patcher, WebpackModules, Tooltip } = Library;
 
-  const { React, APIModule } = Library.DiscordModules;
+  const { React, APIModule, EmojiStore } = Library.DiscordModules;
   const { ContextMenu } = BdApi;
-  let emojisDb = [];
-
-  const fetchEmojis = async () => {
-    // Emojis names for discord (taken from discord-emoji-converter)
-    const res = await fetch(
-      "https://raw.githubusercontent.com/ArkinSolomon/discord-emoji-converter/master/emojis.json"
-    );
-    const data = await res.json();
-
-    emojisDb = data;
-  };
-
-  const emojify = (emoji) =>
-    Object.entries(emojisDb).filter((entry) => entry[0] === emoji);
 
   const react = (message, reaction, type) => {
     const emoji =
@@ -134,7 +120,7 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
         ? {
             animated: false,
             id: null,
-            name: emojify(target.dataset.name)[0][1],
+            name: EmojiStore.getByName(target.dataset.name).surrogates,
           }
         : {
             animated: target.firstElementChild.src.includes(".gif"),
@@ -168,8 +154,6 @@ module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
     }
 
     onStart() {
-      fetchEmojis(); // Fetching emojis database
-
       Patcher.after(miniPopover, "ZP", (_, args, retValue) => {
         const wrraperProps = retValue.props.children[1].props;
         if (!wrraperProps.canReact) return; // Checking if You can react in this channel.
